@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ukubona Pentad — Tree ⇄ Forest (Specialty Stumps) · Hotfix</title>
+<style>
+  :root{
+    --bg:#0b0d0f; --soil:#2c2b28; --root:#7b4b2a; --trunk:#6b523f;
+    --branch:#2f5f3b; --canopy:#51a06a; --haze:#7fcaa0; --fruit:#e55b58;
+    --seed:#f1c84e; --life:#5dd69b; --recur:#e56a6a; --text:#e7efe9; --dim:#a9b6ae;
+    --focus:#9fe8c6; --panel:#0b0d0f; --stroke:#1f2326; --accent:#8ee8ff; --gauge:#8ee8ff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+    color:var(--text); background: radial-gradient(1200px 900px at 50% 0%, #0e1113, var(--bg));
+  }
+  .wrap{max-width:1200px;margin:0 auto;padding:20px}
+  .card{background:#0a0c0e; border:1px solid var(--stroke); border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,.35); overflow:hidden}
+  header{padding:20px 20px 0 20px}
+  h1{font-size:22px; margin:0 0 4px}
+  .sub{color:var(--dim); font-size:14px; margin:0 0 12px}
+  .controls{display:flex; gap:10px; flex-wrap:wrap; padding:0 20px 10px}
+  .chip{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px; border:1px solid #2a2f33; background:#0e1114; color:#cfd8d2; font-size:12px}
+  button.chip{cursor:pointer}
+  svg{display:block; width:100%; height:72vh; background:linear-gradient(#0a0c0e,#0d1012)}
+  .legend{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; padding:10px 20px 20px}
+  .legend .sw{display:inline-block;width:24px;height:3px;border-radius:2px;margin-right:8px;vertical-align:middle}
+  .sheet{position: fixed; top:0; right:-460px; width:440px; max-width:92vw; height:100%; background:var(--panel); border-left:1px solid var(--stroke); box-shadow:-20px 0 60px rgba(0,0,0,.4); transition:right .35s ease; padding:22px; z-index:30; overflow:auto;}
+  .sheet.open{ right:0; }
+  .sheet h2{margin:0 0 6px; font-size:20px}
+  .sheet .subline{color:var(--dim); margin:0 0 14px; font-size:13px}
+  .sheet .body{line-height:1.6; font-size:14px; color:#ced7d1}
+  .close{position:absolute; top:10px; right:14px; background:none; border:1px solid #2a2f33; color:#cfd8d2; border-radius:10px; padding:6px 10px; cursor:pointer}
+  .halo{pointer-events:none}
+  .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; padding:.1em .35em; border:1px solid #2a2f33; border-radius:6px; background:#0f1316}
+  .hint{color:#a9b6ae; font-size:12px}
+  .foot-chorus{max-width:1200px;margin:14px auto 40px; padding:8px 16px; font-size:12px; color:#bcd6cd; opacity:.9}
+  .foot-chorus p{margin:6px 0}
+  /* in-page error (if any) */
+  #err{display:none; white-space:pre-wrap; background:#160b0b; color:#ffdede; padding:8px 12px; border-top:1px solid #3b1f1f}
+  .showerr #err{display:block}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <h1>Ukubona Pentad — Tree ⇄ Forest</h1>
+        <p class="sub" id="subtitle">Mode: <strong>Life Stages</strong> — single organism view. Toggle <span class="kbd">F</span> for Forest (specialty stumps). Press <span class="kbd">M</span> to cycle modes.</p>
+      </header>
+
+      <div class="controls">
+        <span class="chip"><span class="sw" style="background:var(--life)"></span>Life arc</span>
+        <span class="chip"><span class="sw" style="background:var(--recur)"></span>Recursion (thin, dashed)</span>
+        <button class="chip" id="mode">⇄ Switch Mode</button>
+        <button class="chip" id="toggleForest">🌲 Forest: Off</button>
+        <button class="chip" id="randomize">↻ Randomize</button>
+        <span class="chip"><span class="sw" style="background:var(--gauge)"></span>Dynamometer</span>
+        <span class="chip"><span class="sw" style="background:var(--accent)"></span>Schrödinger</span>
+      </div>
+
+      <svg id="scene" viewBox="0 0 1200 1200" role="img" aria-label="Ukubona Tree/Forest">
+        <rect x="0" y="1150" width="1200" height="16" fill="var(--soil)" opacity=".18"/>
+        <rect x="0" y="1132" width="1200" height="16" fill="var(--soil)" opacity=".14"/>
+        <rect x="0" y="1114" width="1200" height="16" fill="var(--soil)" opacity=".10"/>
+        <g id="grove"></g>
+      </svg>
+
+      <div class="legend" id="legend"></div>
+      <pre id="err"></pre>
+    </div>
+    <p class="hint">Keys — <span class="kbd">M</span> mode, <span class="kbd">F</span> forest, <span class="kbd">R</span> randomize, <span class="kbd">Esc</span> close sheet.</p>
+  </div>
+
+  <aside id="sheet" class="sheet" aria-hidden="true">
+    <button class="close" id="closeSheet">Close</button>
+    <h2 id="sTitle">Layer</h2>
+    <p id="sSub" class="subline"></p>
+    <div id="sBody" class="body"></div>
+    <p id="sMeta" class="subline" style="margin-top:16px; font-style:italic"></p>
+  </aside>
+
+  <div class="foot-chorus">
+    <p><em>This is play, not prescription. This is rehearsal, not remedy. This is simulation, not salvation.</em></p>
+  </div>
+
+<script>
+(function(){
+  // ---- tiny on-screen error reporter (helps if blank) ----
+  window.addEventListener('error', (e)=>{
+    const pre = document.getElementById('err');
+    pre.textContent = (pre.textContent? pre.textContent+"\n":"") + (e.message || e.error);
+    document.body.classList.add('showerr');
+  });
+
+  // ---------- helpers ----------
+  const svgNS = "http://www.w3.org/2000/svg";
+  function getVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function cbez(p0,p1,p2,p3){ return `M ${p0[0]},${p0[1]} C ${p1[0]},${p1[1]} ${p2[0]},${p2[1]} ${p3[0]},${p3[1]}`; }
+  function rng(seed){ seed = (seed*16807)%2147483647; return () => (seed = (seed*16807)%2147483647)/2147483647; }
+  function path(g,d,attrs){ const el=document.createElementNS(svgNS,"path"); el.setAttribute("d",d); el.setAttribute("fill","none"); for(const k in attrs){ el.setAttribute(k,attrs[k]); } g.appendChild(el); return el; }
+  function circle(g,cx,cy,r,attrs){ const el=document.createElementNS(svgNS,"circle"); el.setAttribute("cx",cx); el.setAttribute("cy",cy); el.setAttribute("r",r); for(const k in attrs){ el.setAttribute(k,attrs[k]); } g.appendChild(el); return el; }
+  function text(g,x,y,str,attrs){ const el=document.createElementNS(svgNS,"text"); el.setAttribute("x",x); el.setAttribute("y",y); el.setAttribute("text-anchor", attrs.anchor||"start"); delete attrs.anchor; for(const k in attrs){ el.setAttribute(k,attrs[k]); } el.textContent=str; g.appendChild(el); return el; }
+
+  // ---------- datasets (lazy color: store keys, resolve later) ----------
+  const LIFE = [
+    { key:"roots", title:"Roots / Ukuvula", subtitle:"Diet — Foundation", meta:"Provisioning — energy & matter", y:1120, colorKey:"--root",
+      body:"Infancy & Early Childhood — Intake, sensory learning, nutrition." },
+    { key:"trunk", title:"Trunk / Ukuzula", subtitle:"Fitness — Structure", meta:"Embodiment — capacity, stamina", y:930, colorKey:"--trunk",
+      body:"Childhood → Adolescence — Building strength, stability, motor intelligence." },
+    { key:"branch", title:"Branching / Ukukona", subtitle:"Games — Exploration", meta:"Cognition & culture — agency", y:760, colorKey:"--branch",
+      body:"Young Adulthood — Cognitive/social exploration; testing and inventing rules." },
+    { key:"canopy", title:"Canopy / Ukubona", subtitle:"Health — Integration", meta:"Whole-system perception — horizon", y:570, colorKey:"--canopy",
+      body:"Mature Adulthood — Integrating domains into a coherent worldview of wellbeing." },
+    { key:"fruit", title:"Fruit / Ukukula", subtitle:"Aging — Legacy", meta:"Recursion — harvest → seeds", y:380, colorKey:"--fruit",
+      body:"Elderhood — Harvest & recursion; mentoring and knowledge transfer." },
+  ];
+
+  const REALMS = [
+    { key:"roots", title:"Physics (Roots)", subtitle:"Ontology — constraints", meta:"Conservation, symmetry, interactions", y:1120, colorKey:"--root",
+      body:"First principles set the filesystem of reality." },
+    { key:"trunk", title:"Biology (Trunk)", subtitle:"Epistemology — bounded mind", meta:"Embodied sensing; limited context", y:930, colorKey:"--trunk",
+      body:"Life perceives and filters to survive under constraints." },
+    { key:"branch", title:"Social (Branching)", subtitle:"Agency — feedback loops", meta:"Cooperation, competition, trust", y:760, colorKey:"--branch",
+      body:"Norms, institutions, collective memory across scales." },
+    { key:"canopy", title:"Mathematical (Canopy)", subtitle:"Simulation — compressed time", meta:"Abstraction, optimization", y:570, colorKey:"--canopy",
+      body:"Models trade fidelity for tractability; rehearsal before acting." },
+    { key:"fruit", title:"Computational (Fruit)", subtitle:"Strategic intelligence — recursion", meta:"Algorithms encode fruit→seed", y:380, colorKey:"--fruit",
+      body:"Architectures that reuse information can self-improve." },
+  ];
+
+  const PLANT_AI = [
+    { key:"roots", title:"Plant (Roots)", subtitle:"Biology-as-physics", meta:"Phototrophy, distributed sensing", y:1120, colorKey:"--root",
+      body:"Energy capture, growth, sensing without locomotion." },
+    { key:"trunk", title:"Animal (Trunk)", subtitle:"Biology", meta:"Locomotion, nervous coordination", y:930, colorKey:"--trunk",
+      body:"Mobility, adaptive behavior, predator–prey arms races." },
+    { key:"branch", title:"Man (Branching)", subtitle:"Social", meta:"Language, culture, tools", y:760, colorKey:"--branch",
+      body:"Symbolic thought, cooperation, institutions." },
+    { key:"canopy", title:"Equations (Canopy)", subtitle:"Mathematical", meta:"Abstraction, generalization", y:570, colorKey:"--canopy",
+      body:"Predictive models, optimization, compressed time." },
+    { key:"fruit", title:"AI (Fruit)", subtitle:"Computational", meta:"Recursion, synthetic learning", y:380, colorKey:"--fruit",
+      body:"Self-iterating intelligences, novel ontologies." },
+  ];
+
+  const PENTAD = [
+    { key:"roots", title:"Ukuvula — Provisioning", subtitle:"Roots (0→)", meta:"Company 1/5 — Foundation", y:1120, colorKey:"--root",
+      body:"Nutrition, housing, environment; public health interfaces." },
+    { key:"trunk", title:"Ukuzula — Mobility & Fitness", subtitle:"Trunk (movement)", meta:"Company 2/5 — Wearables", y:930, colorKey:"--trunk",
+      body:"Walking speed, cadence, vitality lower-bounds; feed risk engines." },
+    { key:"branch", title:"Ukukona — Play & Games", subtitle:"Branching (experimentation)", meta:"Company 3/5 — Habit loops", y:760, colorKey:"--branch",
+      body:"Behavior shaping via games & social incentives." },
+    { key:"canopy", title:"Ukubona — Health Integration", subtitle:"Canopy (nervous system)", meta:"Company 4/5 — Orchestration", y:570, colorKey:"--canopy",
+      body:"Systemic regulation across payers, providers, rehab, home." },
+    { key:"fruit", title:"Ukukula — Aging & Legacy", subtitle:"Fruit (recursion)", meta:"Company 5/5 — Frailty", y:380, colorKey:"--fruit",
+      body:"Fried phenotype + wearables; ADLs & dignity thresholds." },
+  ];
+
+  const GAMES = [
+    { key:"roots", title:"God (Roots)", subtitle:"Ground of value", meta:"Cosmos, constraint", y:1120, colorKey:"--root",
+      body:"Thermodynamics, time, scarcity." },
+    { key:"trunk", title:"Animal (Trunk)", subtitle:"Embodiment", meta:"Perception–action loops", y:930, colorKey:"--trunk",
+      body:"Drives, fitness, bounded rationality." },
+    { key:"branch", title:"Man (Branching)", subtitle:"Agency", meta:"Language, institutions", y:760, colorKey:"--branch",
+      body:"Symbolic play; will ↔ infrastructure." },
+    { key:"canopy", title:"Enterprise (Canopy)", subtitle:"Organization", meta:"Firms, platforms", y:570, colorKey:"--canopy",
+      body:"Capital and code braid together." },
+    { key:"fruit", title:"System (Fruit)", subtitle:"Orchestration", meta:"Feedback, resilience", y:380, colorKey:"--fruit",
+      body:"Platforms → ecologies that write successors." },
+  ];
+
+  const DYNAMO = [
+    { key:"roots", title:"Zeroth Principle", subtitle:"Absolute zero unattainable", meta:"Flow down gradients", y:1120, colorKey:"--root", gauge:0.15,
+      body:"Aesthetic vitality = distance from zero." },
+    { key:"trunk", title:"Gradients in Biology", subtitle:"Frailty ↔ Vitality", meta:"Fried ↔ wearables", y:930, colorKey:"--trunk", gauge:0.25,
+      body:"Movement and recovery as dynamometer." },
+    { key:"branch", title:"Ukukona — Collisions", subtitle:"Venture, research, talent", meta:"Creative destruction", y:760, colorKey:"--branch", gauge:0.45,
+      body:"Fertile with friction; bloat stalls flow." },
+    { key:"canopy", title:"Microsoft — Emergence (2025)", subtitle:"Order that amplifies power", meta:"Ecosystems, standards", y:570, colorKey:"--canopy", gauge:0.85,
+      body:"Coherent platform effects." },
+    { key:"fruit", title:"NVIDIA — Recursion (2025)", subtitle:"GPUs → AI → GPUs", meta:"Feedback loop", y:380, colorKey:"--fruit", gauge:1.00,
+      body:"Self-acceleration as supply/demand/compute tighten." },
+  ];
+
+  const SCHRO = [
+    { key:"roots", title:"DNA (Unattainable)", subtitle:"Code-as-potential", meta:"Ideal vs flux", y:1120, colorKey:"--root",
+      body:"Never frozen; mutations & epigenetics."},
+    { key:"trunk", title:"ATP (Gradients)", subtitle:"Energy differences drive life", meta:"Proton pumps", y:930, colorKey:"--trunk",
+      body:"No flow, no life."},
+    { key:"branch", title:"Silicon Valley / Ukukona", subtitle:"Collisions", meta:"Creative destruction", y:760, colorKey:"--branch",
+      body:"Dynamism > stagnation."},
+    { key:"canopy", title:"Microsoft (Emergence)", subtitle:"Order that amplifies power", meta:"Ecosystems", y:570, colorKey:"--canopy",
+      body:"From collisions to platforms."},
+    { key:"fruit", title:"NVIDIA (Recursion)", subtitle:"GPUs → AI → GPUs", meta:"Feedback", y:380, colorKey:"--fruit",
+      body:"Off-scale vitality."},
+  ];
+
+  const FOREST = [
+    { name:"Athens", stump:"Thin, rocky Attic soil; maritime access", specialization:"Olive oil & wine → import grain", notes:["Amphora logistics","Coinage & democracy","Philosophy export"] },
+    { name:"Song China", stump:"River valleys; coal & iron pockets", specialization:"Silk, porcelain, iron; paper money", notes:["Compass & maritime trade","Urban guilds","Gunpowder diffusion"] },
+    { name:"Venice", stump:"Lagoon refuge; naval choke points", specialization:"Glass, shipping, finance", notes:["Double-entry bookkeeping","Insurance & merchant law","Republican institutions"] },
+    { name:"Ukubona", stump:"Health-data gradients; care fragmentation", specialization:"Nervous-system integration", notes:["Wearables→risk engines","Game loops for habits","Frailty pipeline"] },
+    { name:"Microsoft", stump:"Developer ecosystems; enterprise contracts", specialization:"Cloud platforms & AI", notes:["Standards & tooling","Capital-scale infra","Ecosystem gravity"] },
+    { name:"NVIDIA", stump:"GPU arch + fabs ecosystem", specialization:"Compute→AI→more compute", notes:["CUDA lock-in","Model demand flywheel","HW–SW co-design"] }
+  ];
+
+  // ---------- engine ----------
+  const scene = document.getElementById("scene");
+  const grove = document.getElementById("grove");
+  const subtitle = document.getElementById("subtitle");
+  const sheet = document.getElementById("sheet");
+  const sTitle = document.getElementById("sTitle");
+  const sSub   = document.getElementById("sSub");
+  const sBody  = document.getElementById("sBody");
+  const sMeta  = document.getElementById("sMeta");
+  document.getElementById("closeSheet").onclick = () => sheet.classList.remove("open");
+
+  let MODE = 0; // 0..6
+  let FOREST_ON = false;
+  const MODE_NAMES = ["Life Stages", "Emergent Realms", "Plant → AI", "Pentad Companies", "GAMES Pentad", "Dynamometer (2025)", "Schrödinger Pentad"];
+  function active(){ return [LIFE, REALMS, PLANT_AI, PENTAD, GAMES, DYNAMO, SCHRO][MODE]; }
+
+  function addMarkers(defs){
+    // build markers via namespace-safe API (no innerHTML)
+    const m1 = document.createElementNS(svgNS,'marker');
+    m1.setAttribute('id','arrowTip'); m1.setAttribute('markerWidth','10'); m1.setAttribute('markerHeight','10');
+    m1.setAttribute('refX','5'); m1.setAttribute('refY','5'); m1.setAttribute('orient','auto-start-reverse');
+    const p1 = document.createElementNS(svgNS,'path');
+    p1.setAttribute('d','M 0 0 L 10 5 L 0 10 z'); p1.setAttribute('fill', getVar('--life'));
+    m1.appendChild(p1); defs.appendChild(m1);
+
+    const m2 = document.createElementNS(svgNS,'marker');
+    m2.setAttribute('id','arrowThin'); m2.setAttribute('markerWidth','8'); m2.setAttribute('markerHeight','8');
+    m2.setAttribute('refX','4'); m2.setAttribute('refY','4'); m2.setAttribute('orient','auto-start-reverse');
+    const p2 = document.createElementNS(svgNS,'path');
+    p2.setAttribute('d','M 0 0 L 8 4 L 0 8 z'); p2.setAttribute('fill', getVar('--recur'));
+    m2.appendChild(p2); defs.appendChild(m2);
+  }
+
+  function draw(seed=42){
+    grove.innerHTML = "";
+    const rand = rng(seed);
+
+    const defs = document.createElementNS(svgNS,'defs');
+    addMarkers(defs);
+    grove.appendChild(defs);
+
+    const bg = document.createElementNS(svgNS,'g');
+    path(bg, `M 1080,1120 C 1160,780 1160,420 1080,200`, {stroke:getVar("--life"), "stroke-width":6, "marker-end":"url(#arrowTip)", opacity:.95});
+    text(bg, 1128, 600, "Younger → Older", {fill:"#9fe8c6", "font-size":20, anchor:"middle", transform:"rotate(-90 1128 600)"});
+    path(bg, `M 120,200 C 40,420 40,780 120,1120`, {stroke:getVar("--recur"), "stroke-width":3, "stroke-dasharray":"10 10", "marker-end":"url(#arrowThin)", opacity:.9});
+    text(bg, 70, 600, "Recursion → next cycle", {fill:"#f3a2a2", "font-size":14, anchor:"middle", transform:"rotate(90 70 600)"});
+    grove.appendChild(bg);
+
+    if(!FOREST_ON){
+      drawTree(600, rand, active(), null, seed);
+      badgesForMode();
+    } else {
+      const N = FOREST.length;
+      const margin = 120, W = 1200;
+      const span = (W - 2*margin);
+      const step = (N>1) ? span / (N - 1) : 0;
+      for(let i=0;i<N;i++){
+        const cx = (N>1) ? (margin + i*step) : (W/2);
+        drawTree(cx, rng(seed + i*9973), active(), FOREST[i], seed+i);
+      }
+      badgesForMode(true);
+    }
+  }
+
+  function drawTree(cx, rand, dataset, info, seedTag){
+    const g = document.createElementNS(svgNS,'g');
+    grove.appendChild(g);
+
+    // Trunk
+    for(let j=0;j<5;j++){
+      const jitter = (rand()-0.5)*10;
+      const p0=[cx+jitter,1120-8];
+      const p3=[cx+jitter,550];
+      const p1=[cx-90+(rand()-0.5)*18,950];
+      const p2=[cx+90+(rand()-0.5)*18,720];
+      path(g, cbez(p0,p1,p2,p3), {stroke:getVar("--trunk"), "stroke-width":18-j*2.5, opacity:.55+j*.08});
+    }
+
+    // Roots
+    for(let k=0;k<7;k++){
+      const amp=220+k*26, base=1120-10;
+      const p0=[cx,base];
+      const p3L=[cx-(380-k*56), base+85+k*10];
+      const p1L=[cx-(110+k*18), base+10+k*2];
+      const p2L=[cx-amp, base+60+k*6];
+      const p3R=[cx+(380-k*56), base+85+k*10];
+      const p1R=[cx+(110+k*18), base+10+k*2];
+      const p2R=[cx+amp, base+60+k*6];
+      path(g, cbez(p0,p1L,p2L,p3L), {stroke:getVar("--root"), "stroke-width":6, opacity:.66});
+      path(g, cbez(p0,p1R,p2R,p3R), {stroke:getVar("--root"), "stroke-width":6, opacity:.66});
+    }
+
+    // Branches + haze
+    const levels=[800,720,650];
+    levels.forEach((ly,i)=>{
+      [-1,1].forEach(dir=>{
+        const span=300-i*64;
+        const p0=[cx,ly];
+        const p3=[cx+dir*(span + (rand()*36)), ly-(40+i*24)];
+        const p1=[cx+dir*(110+rand()*36), ly-10];
+        const p2=[cx+dir*(220+rand()*36), ly-(25+i*20)];
+        path(g, cbez(p0,p1,p2,p3), {stroke:getVar("--branch"), "stroke-width":10-i*2.5, opacity:.9});
+        for(let rr=0;rr<2;rr++){
+          const ox0=cx+dir*(170+rr*38+rand()*20);
+          const oy0=ly-(10+rr*10);
+          const ox3=cx+dir*(span*.78+rand()*28);
+          const oy3=ly-(0+rr*18);
+          const ox1=ox0+dir*(40+rand()*10);
+          const oy1=oy0+8;
+          const ox2=ox3-dir*(40+rand()*10);
+          const oy2=oy3-6;
+          path(g, cbez([ox0,oy0],[ox1,oy1],[ox2,oy2],[ox3,oy3]), {stroke:getVar("--branch"), "stroke-width":5-rr, opacity:.55});
+          circle(g, ox3, oy3, 12+rand()*10, {fill:getVar("--haze"), opacity:.06+rand()*.05});
+        }
+      });
+    });
+
+    // Fruit + seeds
+    for(let i=0;i<6;i++){
+      const x=cx-140 + i*(280/5);
+      const y=320 + Math.sin(i*.8 + (seedTag||0)*.001)*10;
+      circle(g, x, y, 13,{fill:getVar("--fruit")});
+      circle(g, x, y+24, 9,{fill:getVar("--seed"), opacity:.9});
+    }
+
+    // Rings + labels
+    dataset.forEach((layer)=>{
+      const color = (MODE===3 || MODE===4) ? getVar("--accent") : getVar(layer.colorKey);
+      const width = (MODE===5) ? (10 + (layer.gauge||0)*12) : 10;
+
+      circle(g, cx, layer.y, 52,{fill:"#ffffff", opacity:.02, class:"halo"});
+      circle(g, cx, layer.y, 36,{fill:"none", stroke:(MODE===5? getVar("--gauge") : color), "stroke-width":width, opacity:.92});
+      text(g, cx, layer.y-72, layer.title, {fill:getVar("--text"), "font-size":20, anchor:"middle"});
+      text(g, cx, layer.y-50, layer.subtitle, {fill:getVar("--dim"), "font-size":12, anchor:"middle"});
+
+      const hit=circle(g, cx, layer.y, 60,{fill:"#000", opacity:0, cursor:"pointer"});
+      hit.addEventListener("click", ()=> openSheet(layer, info));
+    });
+
+    // Stump labels (forest only)
+    if(info){
+      const cap = document.createElementNS(svgNS,'g');
+      text(cap, cx, 1184, info.name, {fill:"#bcd6cd", "font-size":12, anchor:"middle"});
+      text(cap, cx, 1198, info.specialization, {fill:"#8aa7a0", "font-size":11, anchor:"middle"});
+      grove.appendChild(cap);
+    }
+  }
+
+  function badgesForMode(isForest=false){
+    const g = document.createElementNS(svgNS,'g');
+    g.setAttribute('transform','translate(24,36)');
+    const lines = [];
+    if(MODE===3) lines.push("Wearables: steps, HRV, sleep, cadence","Frailty (75+): weight, grip, exhaustion, slowness, activity");
+    if(MODE===4) lines.push("G = God → ground of value","E/S = Enterprise/System → ecologies");
+    if(MODE===5) lines.push("Dynamometer: Aesthetic vitality = distance from zero");
+    if(MODE===6) lines.push("#Schrödinger: DNA, ATP, Valley, Microsoft, NVIDIA");
+    if(isForest) lines.push("Forest = specialization stumps; roots = locality; branches = trade routes");
+    if(!lines.length) return;
+
+    const bg = document.createElementNS(svgNS,'rect');
+    bg.setAttribute('x',0); bg.setAttribute('y',0); bg.setAttribute('rx',10);
+    bg.setAttribute('width',410); bg.setAttribute('height', lines.length*22+18);
+    bg.setAttribute('fill','#0b0f11'); bg.setAttribute('opacity','0.85');
+    bg.setAttribute('stroke', getVar('--stroke'));
+    g.appendChild(bg);
+
+    lines.forEach((t,i)=>{
+      const tx = document.createElementNS(svgNS,'text');
+      tx.setAttribute('x',12); tx.setAttribute('y', 22 + i*22);
+      tx.setAttribute('fill', '#bcd6cd'); tx.setAttribute('font-size','12');
+      tx.textContent = '• ' + t; g.appendChild(tx);
+    });
+    scene.appendChild(g);
+  }
+
+  function openSheet(layer, info){
+    const stump = info ? ` — <span class="badge">Stump</span> ${info.stump}` : "";
+    sTitle.innerHTML = (info ? `${layer.title} — <span class="badge">${info.name}</span>` : layer.title);
+    sSub.textContent = layer.subtitle;
+    sBody.textContent  = layer.body;
+    const stackMeta = (MODE===3||MODE===4) ? " — Stack: 5 companies (Ukubona = nervous system)." : "";
+    const dateMeta  = (MODE===5) ? " — Benchmarks illustrative (2025)." : "";
+    const extra = info ? ` — Specialty: ${info.specialization}` : "";
+    const bullets = (info && info.notes && info.notes.length) ? `\n• ${info.notes.join("\n• ")}` : "";
+    sMeta.innerHTML = `Meta: ${layer.meta}${stackMeta}${dateMeta}${extra}${stump}${bullets ? "<br>"+bullets.replace(/\n/g,"<br>"):""}`;
+    sheet.classList.add("open");
+    sheet.setAttribute("aria-hidden","false");
+  }
+
+  function setMode(next){
+    MODE = next;
+    document.getElementById("mode").textContent = "⇄ Switch Mode";
+    const lens = MODE_NAMES[MODE];
+    const scope = FOREST_ON ? "forest (specialty stumps)" : "single organism view";
+    subtitle.innerHTML = `Mode: <strong>${lens}</strong> — ${scope}. Toggle <span class="kbd">F</span> for Forest. Press <span class="kbd">M</span> to cycle modes.`;
+    draw(Math.floor(Math.random()*1e6));
+  }
+
+  function toggleForest(){
+    FOREST_ON = !FOREST_ON;
+    document.getElementById("toggleForest").textContent = `🌲 Forest: ${FOREST_ON ? "On" : "Off"}`;
+    setMode(MODE);
+  }
+
+  // ---- DOM-ready init ----
+  window.addEventListener('DOMContentLoaded', ()=>{
+    draw(42);
+    document.getElementById("randomize").onclick = () => draw(Math.floor(Math.random()*1e6));
+    document.getElementById("mode").onclick = () => setMode((MODE + 1) % 7);
+    document.getElementById("toggleForest").onclick = toggleForest;
+    window.addEventListener("keydown", (e)=>{
+      if(e.key.toLowerCase()==='r') draw(Math.floor(Math.random()*1e6));
+      if(e.key.toLowerCase()==='m') setMode((MODE + 1) % 7);
+      if(e.key.toLowerCase()==='f') toggleForest();
+      if(e.key==='Escape') sheet.classList.remove('open');
+    });
+  });
+})();
+</script>
+</body>
+</html>
