@@ -282,3 +282,188 @@ That line is:
 👉 So: this is basically a **theme/variant generator + safe janitor** for your recursive ontology.
 Would you like me to **strip it down** (just grow/list/prune) before merging with `eden.sh`, or keep the full **forest manager** intact inside?
 
+# E 
+
+Totally fair. Let’s keep it simple: here’s a **drop-in block** you can paste straight into `eden.sh`. It adds a new verb:
+
+```
+eden forest <init|grow|list|map|prune|harvest> [flags...]
+```
+
+Safe by default (dry-run pruning). Namespaced, so it won’t collide with your other `eden.sh` bits.
+
+```bash
+##### >>> EDEN::FOREST (paste into eden.sh) #####################################
+# Ontology: tree = {root,trunk,branching,canopy,fruit}
+# Forest = many trees over agent × space × time (AST)
+# Marker: ukb-<agent>_<space>_<time>.dt protects from nuke-prunes
+
+eden_forest_slug() { echo "$1" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]_' '-' | sed 's/^-\\+//;s/-\\+$//'; }
+eden_forest_info(){ echo "[forest] $*" >&2; }
+eden_forest_err(){ echo "[forest][ERR] $*" >&2; exit 1; }
+
+# Defaults
+EDEN_FOREST_DIR="${EDEN_FOREST_DIR:-.}"
+EDEN_FOREST_DEPTH="${EDEN_FOREST_DEPTH:-4}"
+EDEN_FOREST_MAXDEPTH="${EDEN_FOREST_MAXDEPTH:-2}"
+EDEN_FOREST_EXTS="${EDEN_FOREST_EXTS:-.html,.jpg,.jpeg,.png,.gif,.svg,.app}"
+
+eden_forest_usage() {
+  cat <<'EOF'
+eden forest init [--dir D]
+eden forest grow --agent A --space S --time T [--dir D] [--note "..."]
+eden forest list [--dir D] [--depth N]
+eden forest map  [--dir D] [--maxdepth N]
+eden forest prune [--dir D] [--maxdepth N] [--keep PATTERN]... [--force]
+eden forest harvest [--dir D] [--ext ".html,.jpg,.app"] [--out OUTDIR]
+
+Concepts:
+  tree   = {root,trunk,branching,canopy,fruit}
+  forest = many trees at D/A/S/T
+  marker = ukb-<agent>_<space>_<time>.dt (protects from prune)
+
+Safety:
+  prune is DRY-RUN unless --force is passed.
+EOF
+}
+
+eden_forest_init() {
+  local dir="${1:-$EDEN_FOREST_DIR}"
+  mkdir -p "$dir"
+  eden_forest_info "Initialized forest at $dir"
+}
+
+eden_forest_grow() {
+  local agent="" space="" time="" dir="$EDEN_FOREST_DIR" note=""
+  while [[ $# -gt 0 ]]; do case "$1" in
+    --agent) agent=$(eden_forest_slug "$2"); shift 2;;
+    --space) space=$(eden_forest_slug "$2"); shift 2;;
+    --time)  time=$(eden_forest_slug "$2");  shift 2;;
+    --dir)   dir="$2"; shift 2;;
+    --note)  note="$2"; shift 2;;
+    *) eden_forest_err "Unknown flag: $1";; esac; done
+  [[ -n "$agent$space$time" ]] || eden_forest_err "grow needs --agent --space --time"
+  local base="$dir/$agent/$space/$time"
+  mkdir -p "$base"/{root,trunk,branching,canopy,fruit}
+  local marker="$base/ukb-${agent}_${space}_${time}.dt"
+  {
+    echo "# Ukubona digital-twin marker"
+    echo "agent: $agent"
+    echo "space: $space"
+    echo "time: $time"
+    echo "created: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    [[ -n "$note" ]] && echo "note: $note"
+  } > "$marker"
+  eden_forest_info "Grew tree at $base"
+  echo "$base"
+}
+
+eden_forest_list() {
+  local dir="$EDEN_FOREST_DIR" depth="$EDEN_FOREST_DEPTH"
+  while [[ $# -gt 0 ]]; do case "$1" in
+    --dir) dir="$2"; shift 2;;
+    --depth) depth="$2"; shift 2;;
+    *) eden_forest_err "Unknown flag: $1";; esac; done
+  find "$dir" -maxdepth "$depth" -type f -name 'ukb-*.dt' -print0 \
+  | while IFS= read -r -d '' m; do echo "${m%/*}"; done | sort
+}
+
+eden_forest_map() {
+  local dir="$EDEN_FOREST_DIR" maxdepth="$EDEN_FOREST_MAXDEPTH"
+  while [[ $# -gt 0 ]]; do case "$1" in
+    --dir) dir="$2"; shift 2;;
+    --maxdepth) maxdepth="$2"; shift 2;;
+    *) eden_forest_err "Unknown flag: $1";; esac; done
+  eden_forest_info "Outline of $dir (maxdepth=$maxdepth)"
+  find "$dir" -maxdepth "$maxdepth" -print \
+    | sed "1d;s|[^/]*/|- |g;s|- $|—|" | sed 's/^- /└─ /'
+}
+
+eden_forest_prune() {
+  local dir="$EDEN_FOREST_DIR" maxdepth="$EDEN_FOREST_MAXDEPTH" force=0
+  local -a keeps; keeps=('ukb-*.dt')
+  while [[ $# -gt 0 ]]; do case "$1" in
+    --dir) dir="$2"; shift 2;;
+    --maxdepth) maxdepth="$2"; shift 2;;
+    --keep) keeps+=("$2"); shift 2;;
+    --force) force=1; shift;;
+    *) eden_forest_err "Unknown flag: $1";; esac; done
+  local expr=( -maxdepth "$maxdepth" )
+  for k in "${keeps[@]}"; do expr+=( ! -name "$k" ); done
+  if [[ $force -eq 1 ]]; then
+    eden_forest_info "ENACTING prune at '$dir' (maxdepth=$maxdepth). Protecting: ${keeps[*]}"
+    find "$dir" "${expr[@]}" -exec rm -rf {} +
+  else
+    eden_forest_info "DRY-RUN prune. Add --force to enact. Would remove:"
+    find "$dir" "${expr[@]}" -print
+  fi
+}
+
+eden_forest_harvest() {
+  local dir="$EDEN_FOREST_DIR" out="./HARVEST" exts="$EDEN_FOREST_EXTS"
+  while [[ $# -gt 0 ]]; do case "$1" in
+    --dir) dir="$2"; shift 2;;
+    --out) out="$2"; shift 2;;
+    --ext) exts="$2"; shift 2;;
+    *) eden_forest_err "Unknown flag: $1";; esac; done
+  IFS=',' read -r -a arr <<< "$exts"
+  mkdir -p "$out"
+  while IFS= read -r tree; do
+    agent=$(basename "$(dirname "$(dirname "$tree")")")
+    space=$(basename "$(dirname "$tree")")
+    time=$(basename "$tree")
+    for e in "${arr[@]}"; do
+      find "$tree/fruit" -type f -name "*${e}" -print0 2>/dev/null \
+      | while IFS= read -r -d '' f; do
+          dest="$out/$agent/$space/$time/$(basename "$f")"
+          mkdir -p "$(dirname "$dest")"
+          cp -p "$f" "$dest"
+          echo "$dest"
+        done
+    done
+  done < <(eden_forest_list --dir "$dir")
+}
+
+eden_forest_main() {
+  local sub="${1:-usage}"; shift || true
+  case "$sub" in
+    init)    eden_forest_init "$@";;
+    grow)    eden_forest_grow "$@";;
+    list)    eden_forest_list "$@";;
+    map)     eden_forest_map "$@";;
+    prune)   eden_forest_prune "$@";;
+    harvest) eden_forest_harvest "$@";;
+    help|usage|-h|--help) eden_forest_usage;;
+    *) eden_forest_err "Unknown subcommand '$sub'";;
+  esac
+}
+
+# Hook into eden dispatcher:
+if [[ "${1:-}" == "forest" ]]; then shift; eden_forest_main "$@"; exit $?; fi
+##### <<< EDEN::FOREST ##########################################################
+```
+
+### How to use (after pasting)
+
+```bash
+# Grow a tree
+bash eden.sh forest grow --agent Ukuzula --space lab --time 2025Q3 --note "mid-summer spark"
+
+# List trees (by marker files)
+bash eden.sh forest list
+
+# Visual outline
+bash eden.sh forest map --maxdepth 3
+
+# Safe prune (dry-run)
+bash eden.sh forest prune --maxdepth 2
+
+# Actually prune
+bash eden.sh forest prune --maxdepth 2 --force
+
+# Harvest fruit/ artifacts
+bash eden.sh forest harvest --ext ".html,.jpg,.app" --out ./HARVEST
+```
+
+If you like this feel, I can also fold the **standalone `forest.sh`** in as a module file you `source` from `eden.sh`. Either way, this gives you the “same program at every scale” without surprises.
+
